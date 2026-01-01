@@ -8,7 +8,13 @@
   <h1>TEEG</h1>
 
   <input id="name" placeholder="Your name">
-  <button onclick="create()">Create Room</button>
+
+<button onclick="create()">Create Room</button>
+
+<br><br>
+
+<input id="roomId" placeholder="Room code">
+<button onclick="join()">Join Room</button>
 
   <h2 id="room"></h2>
   <div id="state"></div>
@@ -21,6 +27,13 @@ function create() {
   socket.emit("create-room", name, roomId => {
     document.getElementById("room").innerText = "Room: " + roomId;
   });
+}
+
+function join() {
+  const name = document.getElementById("name").value;
+  const roomId = document.getElementById("roomId").value;
+
+  socket.emit("join-room", { roomId, name });
 }
 
 socket.on("state", state => {
