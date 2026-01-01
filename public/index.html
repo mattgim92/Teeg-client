@@ -1,100 +1,154 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>TEEG</title>
+
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0b3d2e;
+      color: white;
+      padding: 20px;
+    }
+
+    button {
+      margin: 4px;
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    .card {
+      padding: 10px;
+      margin: 4px;
+      font-size: 18px;
+    }
+
+    .disabled {
+      opacity: 0.4;
+    }
+  </style>
 </head>
+
 <body>
+
   <h1>TEEG</h1>
 
   <input id="name" placeholder="Your name">
+  <br><br>
 
-<button onclick="create()">Create Room</button>
+  <button onclick="createRoom()">Create Room</button>
+  <br><br>
 
-<br><br>
+  <input id="roomIdInput" placeholder="Room code">
+  <button onclick="joinRoom()">Join Room</button>
 
-<input id="roomId" placeholder="Room code">
-<button onclick="join()">Join Room</button>
-
-  <h2 id="room"></h2>
   <h2 id="room"></h2>
   <h3 id="turn"></h3>
 
-<h3>Players</h3>
-<div id="players"></div>
+  <h3>Players</h3>
+  <div id="players"></div>
 
-<h3>Your Hand</h3>
-<div id="hand"></div>
+  <h3>Your Hand</h3>
+  <div id="hand"></div>
 
-<h3>Play Pile</h3>
-<div id="pile"></div>
+  <h3>Play Pile</h3>
+  <div id="pile"></div>
 
 <script>
-const socket = io("https://teeg-server.onrender.com");
+  // 🔴 IMPORTANT: replace this with YOUR Render server URL
+  const socket = io("https://teeg-server.onrender.com");
 
-function create() {
-  myName = document.getElementById("name").value;
-  socket.emit("create-room", myName, roomId => {
-    document.getElementById("room").innerText = "Room: " + roomId;
-  });
-}
+  let myName = "";
+  let currentRoomId = "";
 
-function join() {
-  myName = document.getElementById("name").value;
-  const roomId = document.getElementById("roomId").value;
-  socket.emit("join-room", { roomId, name: myName });
-}
-
-let myName = "";
-
-function renderState(state) {
-  const playersDiv = document.getElementById("players");
-  const handDiv = document.getElementById("hand");
-  const pileDiv = document.getElementById("pile");
-  const turnDiv = document.getElementById("turn");
-
-  playersDiv.innerHTML = "";
-  handDiv.innerHTML = "";
-  pileDiv.innerHTML = "";
-
-  const currentPlayer = state.players[state.turn];
-  turnDiv.innerText =
-    currentPlayer.name === myName
-      ? "👉 YOUR TURN"
-      : "Waiting for " + currentPlayer.name;
-
-  state.players.forEach(p => {
-    const playerEl = document.createElement("div");
-    playerEl.innerText = p.name;
-    playersDiv.appendChild(playerEl);
-
-    if (p.name === myName) {
-      p.hand.forEach(card => {
-        const cardBtn = document.createElement("button");
-        cardBtn.innerText = card;
-        cardBtn.disabled = currentPlayer.name !== myName;
-        cardBtn.onclick = () =>
-          socket.emit("play", { roomId: document.getElementById("room").innerText.replace("Room: ", ""), card });
-        handDiv.appendChild(cardBtn);
-      });
+  function createRoom() {
+    myName = document.getElementById("name").value;
+    if (!myName) {
+      alert("Enter your name");
+      return;
     }
+
+    socket.emit("create-room", myName, roomId => {
+      currentRoomId = roomId;
+      document.getElementById("room").innerText = "Room: " + roomId;
+    });
+  }
+
+  function joinRoom() {
+    myName = document.getElementById("name").value;
+    const roomId = document.getElementById("roomIdInput").value;
+
+    if (!myName || !roomId) {
+      alert("Enter name and room code");
+      return;
+    }
+
+    currentRoomId = roomId;
+    document.getElementById("room").innerText = "Room: " + roomId;
+
+    socket.emit("join-room", { roomId, name: myName });
+  }
+
+  socket.on("state", state => {
+    renderState(state);
   });
 
-  state.pile.forEach(card => {
-    const cardEl = document.createElement("span");
-    cardEl.innerText = card + " ";
-    pileDiv.appendChild(cardEl);
-  });
-}
-  state.pile.forEach(card => {
-    const cardEl = document.createElement("span");
-    cardEl.innerText = card + " ";
-    pileDiv.appendChild(cardEl);
-  });
-}
+  function renderState(state) {
+    const playersDiv = document.getElementById("players");
+    const handDiv = document.getElementById("hand");
+    const pileDiv = document.getElementById("pile");
+    const turnDiv = document.getElementById("turn");
 
-socket.on("state", renderState);
-  
+    playersDiv.innerHTML = "";
+    handDiv.innerHTML = "";
+    pileDiv.innerHTML = "";
+
+    const currentPlayer = state.players[state.turn];
+
+    if (currentPlayer.name === myName) {
+      turnDiv.innerText = "👉 YOUR TURN";
+    } else {
+      turnDiv.innerText = "Waiting for " + currentPlayer.name;
+    }
+
+    state.players.forEach(player => {
+      const p = document.createElement("div");
+      p.innerText = player.name;
+      playersDiv.appendChild(p);
+
+      if (player.name === myName) {
+        player.hand.forEach(card => {
+          const btn = document.createElement("button");
+          btn.innerText = card;
+          btn.className = "card";
+
+          if (currentPlayer.name !== myName) {
+            btn.disabled = true;
+            btn.classList.add("disabled");
+          }
+
+          btn.onclick = () => {
+            socket.emit("play", {
+              roomId: currentRoomId,
+              card
+            });
+          };
+
+          handDiv.appendChild(btn);
+        });
+      }
+    });
+
+    state.pile.forEach(card => {
+      const span = document.createElement("span");
+      span.innerText = card + " ";
+      pileDiv.appendChild(span);
+    });
+  }
 </script>
+
 </body>
 </html>
