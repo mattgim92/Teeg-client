@@ -17,29 +17,67 @@
 <button onclick="join()">Join Room</button>
 
   <h2 id="room"></h2>
-  <div id="state"></div>
+  <h2 id="room"></h2>
+
+<h3>Players</h3>
+<div id="players"></div>
+
+<h3>Your Hand</h3>
+<div id="hand"></div>
+
+<h3>Play Pile</h3>
+<div id="pile"></div>
 
 <script>
 const socket = io("https://teeg-server.onrender.com");
 
 function create() {
-  const name = document.getElementById("name").value;
-  socket.emit("create-room", name, roomId => {
+  myName = document.getElementById("name").value;
+  socket.emit("create-room", myName, roomId => {
     document.getElementById("room").innerText = "Room: " + roomId;
   });
 }
 
 function join() {
-  const name = document.getElementById("name").value;
+  myName = document.getElementById("name").value;
   const roomId = document.getElementById("roomId").value;
-
-  socket.emit("join-room", { roomId, name });
+  socket.emit("join-room", { roomId, name: myName });
 }
 
-socket.on("state", state => {
-  document.getElementById("state").innerText =
-    JSON.stringify(state, null, 2);
-});
+let myName = "";
+
+function renderState(state) {
+  const playersDiv = document.getElementById("players");
+  const handDiv = document.getElementById("hand");
+  const pileDiv = document.getElementById("pile");
+
+  playersDiv.innerHTML = "";
+  handDiv.innerHTML = "";
+  pileDiv.innerHTML = "";
+
+  state.players.forEach(p => {
+    const playerEl = document.createElement("div");
+    playerEl.innerText = p.name;
+    playersDiv.appendChild(playerEl);
+
+    if (p.name === myName) {
+      p.hand.forEach(card => {
+        const cardBtn = document.createElement("button");
+        cardBtn.innerText = card;
+        handDiv.appendChild(cardBtn);
+      });
+    }
+  });
+
+  state.pile.forEach(card => {
+    const cardEl = document.createElement("span");
+    cardEl.innerText = card + " ";
+    pileDiv.appendChild(cardEl);
+  });
+}
+
+socket.on("state", renderState);
+  
 </script>
 </body>
 </html>
