@@ -18,6 +18,7 @@
 
   <h2 id="room"></h2>
   <h2 id="room"></h2>
+  <h3 id="turn"></h3>
 
 <h3>Players</h3>
 <div id="players"></div>
@@ -50,10 +51,17 @@ function renderState(state) {
   const playersDiv = document.getElementById("players");
   const handDiv = document.getElementById("hand");
   const pileDiv = document.getElementById("pile");
+  const turnDiv = document.getElementById("turn");
 
   playersDiv.innerHTML = "";
   handDiv.innerHTML = "";
   pileDiv.innerHTML = "";
+
+  const currentPlayer = state.players[state.turn];
+  turnDiv.innerText =
+    currentPlayer.name === myName
+      ? "👉 YOUR TURN"
+      : "Waiting for " + currentPlayer.name;
 
   state.players.forEach(p => {
     const playerEl = document.createElement("div");
@@ -64,11 +72,20 @@ function renderState(state) {
       p.hand.forEach(card => {
         const cardBtn = document.createElement("button");
         cardBtn.innerText = card;
+        cardBtn.disabled = currentPlayer.name !== myName;
+        cardBtn.onclick = () =>
+          socket.emit("play", { roomId: document.getElementById("room").innerText.replace("Room: ", ""), card });
         handDiv.appendChild(cardBtn);
       });
     }
   });
 
+  state.pile.forEach(card => {
+    const cardEl = document.createElement("span");
+    cardEl.innerText = card + " ";
+    pileDiv.appendChild(cardEl);
+  });
+}
   state.pile.forEach(card => {
     const cardEl = document.createElement("span");
     cardEl.innerText = card + " ";
