@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TEEG</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+  <h1>TEEG</h1>
+
+  <input id="name" placeholder="Your name">
+  <button onclick="create()">Create Room</button>
+
+  <h2 id="room"></h2>
+  <div id="state"></div>
+
+<script>
+const socket = io("https://teeg-server.onrender.com");
+
+function create() {
+  const name = document.getElementById("name").value;
+  socket.emit("create-room", name, roomId => {
+    document.getElementById("room").innerText = "Room: " + roomId;
+  });
+}
+
+socket.on("state", state => {
+  document.getElementById("state").innerText =
+    JSON.stringify(state, null, 2);
+});
+</script>
+</body>
+</html>
