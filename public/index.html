@@ -49,10 +49,14 @@ const socket = io("https://teeg-server.onrender.com", {
   forceNew: true
 });
 
-socket.on("connect", () => alert("CONNECTED TO SERVER"));
+socket.on("connect", () => {
+  myId = socket.id;
+  alert("CONNECTED TO SERVER");
+});
+  
 socket.on("connect_error", e => alert("CONNECT ERROR: " + e.message));
 
-let myName = "", roomId = "";
+let myName = "", roomId = "", myId = "";
 
 function createRoom() {
   myName = name.value;
@@ -72,11 +76,11 @@ function joinRoom() {
 socket.on("state", s => {
   players.innerHTML = hand.innerHTML = pile.innerHTML = "";
   const cp = s.players[s.turn];
-  turn.innerText = cp.name === myName ? "👉 YOUR TURN" : "Waiting for " + cp.name;
+turn.innerText = cp.id === myId ? "👉 YOUR TURN" : "Waiting for " + cp.name;
 
   s.players.forEach(p => {
     players.innerHTML += `<div>${p.name}</div>`;
-    if (p.name === myName)
+    if (p.name === myId)
       p.hand.forEach(c => {
         const b = document.createElement("button");
         b.innerText = c;
