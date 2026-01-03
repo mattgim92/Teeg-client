@@ -7,6 +7,18 @@
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
   <style>
+
+#bomb {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 0, 0, 0.8);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 80px;
+  z-index: 999;
+}
+    
     body {
       font-family: Arial, sans-serif;
       background: #0b3d2e;
@@ -34,6 +46,8 @@
 
 <body>
 
+<div id="bomb">💥 BOMB 💥</div>
+  
   <h1>TEEG</h1>
 
   <input id="name" placeholder="Your name">
@@ -95,6 +109,15 @@
   socket.on("state", state => {
     renderState(state);
   });
+
+  socket.on("bomb", () => {
+  const bomb = document.getElementById("bomb");
+  bomb.style.display = "flex";
+
+  setTimeout(() => {
+    bomb.style.display = "none";
+  }, 800);
+});
 
   function renderState(state) {
     const playersDiv = document.getElementById("players");
