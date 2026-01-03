@@ -97,6 +97,14 @@
 
 <script>
 
+  socket.on("connect", () => {
+  alert("Connected to server");
+});
+
+socket.on("connect_error", err => {
+  alert("Connection error: " + err.message);
+});
+
   socket.on("game-over", data => {
   const teegScreen = document.getElementById("teeg");
   const teegText = document.getElementById("teegText");
@@ -109,8 +117,10 @@
   };
 });
 
-  // 🔴 IMPORTANT: replace this with YOUR Render server URL
-  const socket = io("https://teeg-server.onrender.com");
+  const socket = io("https://teeg-server.onrender.com"), {
+  transports: ["websocket"],
+  upgrade: false
+});
 
   let myName = "";
   let currentRoomId = "";
