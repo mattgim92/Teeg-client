@@ -1,224 +1,103 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>TEEG</title>
+<meta charset="UTF-8">
+<title>TEEG</title>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  
-  <style>
+<style>
+body { background:#0b3d2e; color:white; font-family:Arial; padding:20px; text-align:center }
+button { padding:10px; margin:5px; font-size:16px }
+.disabled { opacity:0.4 }
 
-   #teeg {
-  position: fixed;
-  inset: 0;
-  background: black;
-  color: red;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 48px;
-  z-index: 1000;
+#bomb, #teeg {
+  position:fixed; inset:0; display:none;
+  align-items:center; justify-content:center;
+  font-size:60px; z-index:999;
 }
-
-#chant {
-  margin-top: 30px;
-  font-size: 28px;
-  padding: 20px;
-} 
-
-#bomb {
-  position: fixed;
-  inset: 0;
-  background: rgba(255, 0, 0, 0.8);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  font-size: 80px;
-  z-index: 999;
-}
-    
-    body {
-      font-family: Arial, sans-serif;
-      background: #0b3d2e;
-      color: white;
-      padding: 20px;
-    }
-
-    button {
-      margin: 4px;
-      padding: 10px;
-      font-size: 16px;
-    }
-
-    .card {
-      padding: 10px;
-      margin: 4px;
-      font-size: 18px;
-    }
-
-    .disabled {
-      opacity: 0.4;
-    }
-  </style>
+#bomb { background:red }
+#teeg { background:black; color:red; flex-direction:column }
+</style>
 </head>
 
 <body>
 
-  <div id="teeg">
+<div id="bomb">💥 BOMB 💥</div>
+<div id="teeg">
   <div id="teegText"></div>
-  <button id="chant">YOU'RE SHIT</button>
+  <button onclick="alert(`YOU'RE SHIT 😈`)">YOU'RE SHIT</button>
 </div>
 
-<div id="bomb">💥 BOMB 💥</div>
-  
-  <h1>TEEG</h1>
+<h1>TEEG</h1>
 
-  <input id="name" placeholder="Your name">
-  <br><br>
+<input id="name" placeholder="Your name"><br><br>
+<button onclick="createRoom()">Create Room</button><br><br>
 
-  <button onclick="createRoom()">Create Room</button>
-  <br><br>
+<input id="roomInput" placeholder="Room code">
+<button onclick="joinRoom()">Join Room</button>
 
-  <input id="roomIdInput" placeholder="Room code">
-  <button onclick="joinRoom()">Join Room</button>
+<h2 id="room"></h2>
+<h3 id="turn"></h3>
 
-  <h2 id="room"></h2>
-  <h3 id="turn"></h3>
-
-  <h3>Players</h3>
-  <div id="players"></div>
-
-  <h3>Your Hand</h3>
-  <div id="hand"></div>
-
-  <h3>Play Pile</h3>
-  <div id="pile"></div>
+<h3>Players</h3><div id="players"></div>
+<h3>Your Hand</h3><div id="hand"></div>
+<h3>Play Pile</h3><div id="pile"></div>
 
 <script>
-
-  socket.on("connect", () => {
-  alert("Connected to server");
+const socket = io("https://teeg-server.onrender.com", {
+  transports: ["polling"],
+  forceNew: true
 });
 
-socket.on("connect_error", err => {
-  alert("Connection error: " + err.message);
-});
+socket.on("connect", () => alert("CONNECTED TO SERVER"));
+socket.on("connect_error", e => alert("CONNECT ERROR: " + e.message));
 
-  socket.on("game-over", data => {
-  const teegScreen = document.getElementById("teeg");
-  const teegText = document.getElementById("teegText");
+let myName = "", roomId = "";
 
-  teegText.innerText = data.teeg + " IS THE TEEG";
-  teegScreen.style.display = "flex";
+function createRoom() {
+  myName = name.value;
+  socket.emit("create-room", myName, id => {
+    roomId = id;
+    room.innerText = "Room: " + id;
+  });
+}
 
-  document.getElementById("chant").onclick = () => {
-    alert("YOU'RE SHIT 😈");
-  };
-});
+function joinRoom() {
+  myName = name.value;
+  roomId = roomInput.value;
+  room.innerText = "Room: " + roomId;
+  socket.emit("join-room", { roomId, name: myName });
+}
 
-  const socket = io("https://teeg-server.onrender.com"), {
-  transports: ["websocket"],
-  upgrade: false
-});
+socket.on("state", s => {
+  players.innerHTML = hand.innerHTML = pile.innerHTML = "";
+  const cp = s.players[s.turn];
+  turn.innerText = cp.name === myName ? "👉 YOUR TURN" : "Waiting for " + cp.name;
 
-  let myName = "";
-  let currentRoomId = "";
-
-  function createRoom() {
-    myName = document.getElementById("name").value;
-    if (!myName) {
-      alert("Enter your name");
-      return;
-    }
-
-    socket.emit("create-room", myName, roomId => {
-      currentRoomId = roomId;
-      document.getElementById("room").innerText = "Room: " + roomId;
-    });
-  }
-
-  function joinRoom() {
-    myName = document.getElementById("name").value;
-    const roomId = document.getElementById("roomIdInput").value;
-
-    if (!myName || !roomId) {
-      alert("Enter name and room code");
-      return;
-    }
-
-    currentRoomId = roomId;
-    document.getElementById("room").innerText = "Room: " + roomId;
-
-    socket.emit("join-room", { roomId, name: myName });
-  }
-
-  socket.on("state", state => {
-    renderState(state);
+  s.players.forEach(p => {
+    players.innerHTML += `<div>${p.name}</div>`;
+    if (p.name === myName)
+      p.hand.forEach(c => {
+        const b = document.createElement("button");
+        b.innerText = c;
+        if (cp.name !== myName) b.disabled = true;
+        b.onclick = () => socket.emit("play", { roomId, card:c });
+        hand.appendChild(b);
+      });v
   });
 
-  socket.on("bomb", () => {
-  const bomb = document.getElementById("bomb");
-  bomb.style.display = "flex";
-
-  setTimeout(() => {
-    bomb.style.display = "none";
-  }, 800);
+  s.pile.forEach(c => pile.innerText += c + " ");
 });
 
-  function renderState(state) {
-    const playersDiv = document.getElementById("players");
-    const handDiv = document.getElementById("hand");
-    const pileDiv = document.getElementById("pile");
-    const turnDiv = document.getElementById("turn");
+socket.on("bomb", () => {
+  bomb.style.display = "flex";
+  setTimeout(()=>bomb.style.display="none",800);
+});
 
-    playersDiv.innerHTML = "";
-    handDiv.innerHTML = "";
-    pileDiv.innerHTML = "";
-
-    const currentPlayer = state.players[state.turn];
-
-    if (currentPlayer.name === myName) {
-      turnDiv.innerText = "👉 YOUR TURN";
-    } else {
-      turnDiv.innerText = "Waiting for " + currentPlayer.name;
-    }
-
-    state.players.forEach(player => {
-      const p = document.createElement("div");
-      p.innerText = player.name;
-      playersDiv.appendChild(p);
-
-      if (player.name === myName) {
-        player.hand.forEach(card => {
-          const btn = document.createElement("button");
-          btn.innerText = card;
-          btn.className = "card";
-
-          if (currentPlayer.name !== myName) {
-            btn.disabled = true;
-            btn.classList.add("disabled");
-          }
-
-          btn.onclick = () => {
-            socket.emit("play", {
-              roomId: currentRoomId,
-              card
-            });
-          };
-
-          handDiv.appendChild(btn);
-        });
-      }
-    });
-
-    state.pile.forEach(card => {
-      const span = document.createElement("span");
-      span.innerText = card + " ";
-      pileDiv.appendChild(span);
-    });
-  }
+socket.on("game-over", d => {
+  teeg.style.display="flex";
+  teegText.innerText = d.teeg + " IS THE TEEG";
+});
 </script>
-
 </body>
 </html>
