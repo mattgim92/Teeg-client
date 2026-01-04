@@ -95,7 +95,21 @@ let myId = "";
 
 socket.on("connect", () => {
   myId = socket.id;
-  alert("CONNECTED TO SERVER");
+  document.body.insertAdjacentHTML(
+    "afterbegin",
+    `<div style="background:green;color:white;padding:10px">
+      CONNECTED: ${socket.id}
+    </div>`
+  );
+});
+
+  socket.on("disconnect", () => {
+  document.body.insertAdjacentHTML(
+    "afterbegin",
+    `<div style="background:red;color:white;padding:10px">
+      DISCONNECTED
+    </div>`
+  );
 });
 
 socket.on("connect_error", err => {
