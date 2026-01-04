@@ -95,66 +95,34 @@ let myId = "";
 
 socket.on("connect", () => {
   myId = socket.id;
-  document.body.insertAdjacentHTML(
-    "afterbegin",
-    `<div style="background:green;color:white;padding:10px">
-      CONNECTED: ${socket.id}
-    </div>`
-  );
+  console.log("Connected:", socket.id);
 });
 
-  socket.on("disconnect", () => {
-  document.body.insertAdjacentHTML(
-    "afterbegin",
-    `<div style="background:red;color:white;padding:10px">
-      DISCONNECTED
-    </div>`
-  );
+socket.on("disconnect", () => {
+  console.log("Disconnected from server");
 });
 
 socket.on("connect_error", err => {
-  alert("CONNECT ERROR: " + err.message);
+  console.error("Connection error:", err.message);
 });
 
 /* ---------------- ROOM ACTIONS ---------------- */
-
+  
 function createRoom() {
-  alert("Create Room button clicked");
-
   myName = document.getElementById("playerName").value.trim();
-  if (!myName) {
-    alert("No name entered");
-    return;
-  }
-
-  alert("Emitting create-room as " + myName);
+  if (!myName) return alert("Enter name");
 
   socket.emit("create-room", myName, (id) => {
-    alert("Room created callback received: " + id);
     roomId = id;
     room.innerText = "Room: " + id;
   });
 }
-  
-//function createRoom() {
-//  myName = document.getElementById("playerName").value.trim();
-//  if (!myName) return alert("Enter name");
-
-//  console.log("Creating room as", myName);
-
-//  socket.emit("create-room", myName, (id) => {
-//    console.log("Room created:", id);
-//    roomId = id;
-//    room.innerText = "Room: " + id;
-//  });
-//}
 
   function joinRoom() {
   myName = document.getElementById("playerName").value.trim();
   roomId = document.getElementById("roomInput").value.trim();
 
   if (!myName || !roomId) {
-    alert("Enter name & room code");
     return;
   }
 
