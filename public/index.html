@@ -108,7 +108,10 @@ function createRoom() {
   myName = name.value.trim();
   if (!myName) return alert("Enter name");
 
-  socket.emit("create-room", myName, id => {
+  console.log("Creating room as", myName);
+
+  socket.emit("create-room", myName, (id) => {
+    console.log("Room created:", id);
     roomId = id;
     room.innerText = "Room: " + id;
   });
