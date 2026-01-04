@@ -119,17 +119,35 @@ socket.on("connect_error", err => {
 /* ---------------- ROOM ACTIONS ---------------- */
 
 function createRoom() {
-  myName = name.value.trim();
-  if (!myName) return alert("Enter name");
+  alert("Create Room button clicked");
 
-  console.log("Creating room as", myName);
+  myName = name.value.trim();
+  if (!myName) {
+    alert("No name entered");
+    return;
+  }
+
+  alert("Emitting create-room as " + myName);
 
   socket.emit("create-room", myName, (id) => {
-    console.log("Room created:", id);
+    alert("Room created callback received: " + id);
     roomId = id;
     room.innerText = "Room: " + id;
   });
 }
+  
+//function createRoom() {
+//  myName = name.value.trim();
+//  if (!myName) return alert("Enter name");
+
+//  console.log("Creating room as", myName);
+
+//  socket.emit("create-room", myName, (id) => {
+//    console.log("Room created:", id);
+//    roomId = id;
+//    room.innerText = "Room: " + id;
+//  });
+//}
 
 function joinRoom() {
   myName = name.value.trim();
