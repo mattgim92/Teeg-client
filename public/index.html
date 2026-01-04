@@ -121,7 +121,7 @@ socket.on("connect_error", err => {
 function createRoom() {
   alert("Create Room button clicked");
 
-  myName = name.value.trim();
+  myName = document.getElementById("playerName").value.trim();
   if (!myName) {
     alert("No name entered");
     return;
@@ -137,7 +137,7 @@ function createRoom() {
 }
   
 //function createRoom() {
-//  myName = name.value.trim();
+//  myName = document.getElementById("playerName").value.trim();
 //  if (!myName) return alert("Enter name");
 
 //  console.log("Creating room as", myName);
@@ -149,10 +149,14 @@ function createRoom() {
 //  });
 //}
 
-function joinRoom() {
-  myName = name.value.trim();
-  roomId = roomInput.value.trim();
-  if (!myName || !roomId) return alert("Enter name & room");
+  function joinRoom() {
+  myName = document.getElementById("playerName").value.trim();
+  roomId = document.getElementById("roomInput").value.trim();
+
+  if (!myName || !roomId) {
+    alert("Enter name & room code");
+    return;
+  }
 
   room.innerText = "Room: " + roomId;
   socket.emit("join-room", { roomId, name: myName });
