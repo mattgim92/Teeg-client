@@ -150,6 +150,7 @@ body {
     <input id="roomInput" placeholder="Room code">
     <button onclick="joinRoom()">Join Room</button>
     <h3 id="turn"></h3>
+    <button onclick="playSelected()">Play Selected</button>
   </div>
 
   <div id="play-pile"></div>
@@ -192,27 +193,42 @@ socket.on("state", state=>{
     playerDiv.className="player "+["top","bottom","left","right"][index];
     playerDiv.id="player-"+index;
 
-    // Face-down
+    // Player name
+    const nameDiv=document.createElement("div");
+    nameDiv.innerText=p.name+(p.id===current.id?" ⭐":"");
+    playerDiv.appendChild(nameDiv);
+
+    // Face-down cards
     const fdRow=document.createElement("div"); fdRow.className="cards-row";
-    (p.faceDown||p.hand).forEach(()=>{const c=document.createElement("div"); c.className="card back"; fdRow.appendChild(c);});
+    (p.faceDown||[]).forEach(()=>{const c=document.createElement("div"); c.className="card back"; fdRow.appendChild(c);});
     playerDiv.appendChild(fdRow);
 
-    // Face-up
+    // Face-up cards
     const fuRow=document.createElement("div"); fuRow.className="cards-row";
-    (p.faceUp||[]).forEach(card=>{const c=document.createElement("div"); c.className="card"; c.innerText=card; fuRow.appendChild(c);});
+    (p.faceUp||[]).forEach(card=>{const c=document.createElement("div"); c.className="card"; c.innerText=card;
+      if(p.id===myId&&p.stage==="faceUp") c.onclick=()=>socket.emit("play",{roomId,card});
+    fuRow.appendChild(c);});
     playerDiv.appendChild(fuRow);
 
-    // Hand (only for me)
-    if(p.id===myId){
+    // Hand (only me)
+    if(p.id===myId&&p.stage==="hand"){
       const handRow=document.createElement("div"); handRow.className="cards-row";
       (p.hand||[]).forEach((card,i)=>{
-        const btn=document.createElement("div"); btn.className="card"; btn.innerText=card;
-        if(selectedIndexes.includes(i)) btn.classList.add("selected");
-        btn.onclick=()=>toggleCard(card,i);
-        handRow.appendChild(btn);
+        const c=document.createElement("div"); c.className="card"; c.innerText=card;
+        if(selectedIndexes.includes(i)) c.classList.add("selected");
+        c.onclick=()=>toggleCard(card,i);
+        handRow.appendChild(c);
       });
       playerDiv.appendChild(handRow);
     }
+
+    // Face-down play stage
+    if(p.id===myId&&p.stage==="faceDown"){
+      const fdPlay=document.createElement("div"); fdPlay.className="cards-row";
+      (p.faceDown||[]).forEach(()=>{const c=document.createElement("div"); c.className="card"; c.innerText="❓"; c.onclick=()=>socket.emit("play",{roomId,card:"UNKNOWN"}); fdPlay.appendChild(c);});
+      playerDiv.appendChild(fdPlay);
+    }
+
     table.appendChild(playerDiv);
   });
 
@@ -221,11 +237,9 @@ socket.on("state", state=>{
   const pileCounts={};
   state.pile.forEach(c=>pileCounts[c]=(pileCounts[c]||0)+1);
   Object.keys(pileCounts).forEach((c,i)=>{
-    const cardDiv=document.createElement("div"); cardDiv.className="pile-card"; cardDiv.style.top=(i*5)+"px";
-    cardDiv.innerText=c; pp.appendChild(cardDiv);
-    if(pileCounts[c]>1){
-      const countDiv=document.createElement("div"); countDiv.className="pile-count"; countDiv.innerText=pileCounts[c]; cardDiv.appendChild(countDiv);
-    }
+    const cardDiv=document.createElement("div"); cardDiv.className="pile-card"; cardDiv.style.top=(i*5)+"px"; cardDiv.innerText=c;
+    if(pileCounts[c]>1){const countDiv=document.createElement("div"); countDiv.className="pile-count"; countDiv.innerText=pileCounts[c]; cardDiv.appendChild(countDiv);}
+    pp.appendChild(cardDiv);
   });
 
   // Draw pile
@@ -243,7 +257,8 @@ function toggleCard(card,index){
 function renderHand(){
   if(!lastState) return;
   const me=lastState.players.find(p=>p.id===myId);
-  const handDiv=document.querySelector("#player-"+lastState.players.indexOf(me)+" .cards-row:last-child");
+  const handDiv=document.querySelector("#player-"+lastState.players.indexOf(me)+" .cards-row");
+  if(!handDiv) return;
   Array.from(handDiv.children).forEach((c,i)=>c.classList.toggle("selected",selectedIndexes.includes(i)));
 }
 
@@ -261,5 +276,6 @@ socket.on("bomb",()=>{bomb.style.display="flex"; setTimeout(()=>bomb.style.displ
 socket.on("game-over",data=>{teeg.style.display="flex"; teegText.innerText=data.teeg+" IS THE TEEG";});
 socket.on("connect",()=>{myId=socket.id;});
 </script>
+
 </body>
 </html>
