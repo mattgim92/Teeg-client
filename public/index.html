@@ -29,6 +29,14 @@
       min-width: 40px;
     }
 
+    /* 🔥 Selected cards */
+    .selected {
+      background: gold !important;
+      color: black;
+      border: 2px solid red;
+      transform: scale(1.1);
+    }
+
     #bomb, #teeg {
       position: fixed;
       inset: 0;
@@ -53,33 +61,35 @@
 
 <body>
 
-  <div id="bomb">💥 BOMB 💥</div>
+<div id="bomb">💥 BOMB 💥</div>
 
-  <div id="teeg">
-    <div id="teegText"></div>
-    <button onclick="alert(`YOU'RE SHIT 😈`)">YOU'RE SHIT</button>
-  </div>
+<div id="teeg">
+  <div id="teegText"></div>
+  <button onclick="alert(`YOU'RE SHIT 😈`)">YOU'RE SHIT</button>
+</div>
 
-  <h1>TEEG</h1>
+<h1>TEEG</h1>
 
-  <input id="playerName" placeholder="Your name"><br><br>
+<input id="playerName" placeholder="Your name"><br><br>
 
-  <button onclick="createRoom()">Create Room</button><br><br>
+<button onclick="createRoom()">Create Room</button><br><br>
 
-  <input id="roomInput" placeholder="Room code">
-  <button onclick="joinRoom()">Join Room</button>
+<input id="roomInput" placeholder="Room code">
+<button onclick="joinRoom()">Join Room</button>
 
-  <h2 id="room"></h2>
-  <h3 id="turn"></h3>
+<h2 id="room"></h2>
+<h3 id="turn"></h3>
 
-  <h3>Players</h3>
-  <div id="players"></div>
+<h3>Players</h3>
+<div id="players"></div>
 
-  <h3>Your Hand</h3>
-  <div id="hand"></div>
+<h3>Your Hand</h3>
+<div id="hand"></div>
 
-  <h3>Play Pile</h3>
-  <div id="pile"></div>
+<button onclick="playSelected()">Play Selected</button>
+
+<h3>Play Pile</h3>
+<div id="pile"></div>
 
 <script>
 /* ---------------- CONNECTION ---------------- */
@@ -93,6 +103,10 @@ let myName = "";
 let roomId = "";
 let myId = "";
 
+/* 🔥 Multi-select state */
+let selectedIndexes = [];
+let selectedValue = null;
+
 socket.on("connect", () => {
   myId = socket.id;
   console.log("Connected:", socket.id);
@@ -102,29 +116,22 @@ socket.on("disconnect", () => {
   console.log("Disconnected from server");
 });
 
-socket.on("connect_error", err => {
-  console.error("Connection error:", err.message);
-});
-
 /* ---------------- ROOM ACTIONS ---------------- */
-  
+
 function createRoom() {
   myName = document.getElementById("playerName").value.trim();
   if (!myName) return alert("Enter name");
 
-  socket.emit("create-room", myName, (id) => {
+  socket.emit("create-room", myName, id => {
     roomId = id;
     room.innerText = "Room: " + id;
   });
 }
 
-  function joinRoom() {
+function joinRoom() {
   myName = document.getElementById("playerName").value.trim();
   roomId = document.getElementById("roomInput").value.trim();
-
-  if (!myName || !roomId) {
-    return;
-  }
+  if (!myName || !roomId) return;
 
   room.innerText = "Room: " + roomId;
   socket.emit("join-room", { roomId, name: myName });
@@ -132,58 +139,99 @@ function createRoom() {
 
 /* ---------------- STATE HANDLER ---------------- */
 
+let lastState = null;
+
 socket.on("state", state => {
-  // Clear UI
+  lastState = state;
   players.innerHTML = "";
   hand.innerHTML = "";
   pile.innerHTML = "";
 
-  if (!state.players || state.players.length === 0) return;
+  selectedIndexes = [];
+  selectedValue = null;
 
   const currentPlayer = state.players[state.turn];
 
-  // Turn indicator
   turn.innerText =
     currentPlayer.id === myId
       ? "👉 YOUR TURN"
       : "Waiting for " + currentPlayer.name;
 
-  // Players + hand
   state.players.forEach(p => {
     const div = document.createElement("div");
     div.innerText = p.name;
-
-    if (p.id === currentPlayer.id) {
-      div.style.fontWeight = "bold";
-      div.innerText += " ⭐";
-    }
-
+    if (p.id === currentPlayer.id) div.innerText += " ⭐";
     players.appendChild(div);
 
-    // Only render MY hand
     if (p.id === myId) {
-      p.hand.forEach(card => {
+      p.hand.forEach((card, index) => {
         const btn = document.createElement("button");
         btn.innerText = card;
 
-        if (currentPlayer.id !== myId) {
-          btn.disabled = true;
+        if (currentPlayer.id !== myId) btn.disabled = true;
+
+        if (selectedIndexes.includes(index)) {
+          btn.classList.add("selected");
         }
 
-        btn.onclick = () => {
-          socket.emit("play", { roomId, card });
-        };
-
+        btn.onclick = () => toggleCard(card, index);
         hand.appendChild(btn);
       });
     }
   });
 
-  // Render pile
   state.pile.forEach(card => {
     pile.innerText += card + " ";
   });
 });
+
+/* ---------------- MULTI SELECT LOGIC ---------------- */
+
+function toggleCard(card, index) {
+  if (!lastState) return;
+  if (lastState.players[lastState.turn].id !== myId) return;
+
+  if (selectedValue === null) {
+    selectedValue = card;
+    selectedIndexes = [index];
+    refreshHand();
+    return;
+  }
+
+  if (card !== selectedValue) {
+    selectedValue = card;
+    selectedIndexes = [index];
+    refreshHand();
+    return;
+  }
+
+  if (selectedIndexes.includes(index)) {
+    selectedIndexes = selectedIndexes.filter(i => i !== index);
+    if (selectedIndexes.length === 0) selectedValue = null;
+  } else {
+    selectedIndexes.push(index);
+  }
+
+  refreshHand();
+}
+
+function refreshHand() {
+  socket.emit("state-refresh");
+}
+
+/* ---------------- PLAY ---------------- */
+
+function playSelected() {
+  if (!lastState || selectedIndexes.length === 0) return;
+
+  const me = lastState.players.find(p => p.id === myId);
+  const cards = selectedIndexes.map(i => me.hand[i]);
+
+  socket.emit("play", { roomId, cards });
+
+  selectedIndexes = [];
+  selectedValue = null;
+}
 
 /* ---------------- EFFECTS ---------------- */
 
