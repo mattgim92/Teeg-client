@@ -1,260 +1,265 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>TEEG</title>
+<meta charset="UTF-8">
+<title>TEEG Table</title>
 
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
-  <style>
-    body {
-      background: #0b3d2e;
-      color: white;
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      text-align: center;
-    }
-
-    button {
-      padding: 10px;
-      margin: 5px;
-      font-size: 16px;
-    }
-
-    #players div {
-      margin: 4px;
-    }
-
-    #hand button {
-      min-width: 40px;
-    }
-
-    .selected {
-      background: gold !important;
-      color: black;
-      border: 2px solid red;
-      transform: scale(1.1);
-    }
-
-    #bomb, #teeg {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-size: 48px;
-      z-index: 999;
-    }
-
-    #bomb { background: red; }
-
-    #teeg {
-      background: black;
-      color: red;
-      flex-direction: column;
-    }
-  </style>
-</head>
-
-<body>
-
-<div id="bomb">💥 BOMB 💥</div>
-
-<div id="teeg">
-  <div id="teegText"></div>
-  <button onclick="alert(`YOU'RE SHIT 😈`)">YOU'RE SHIT</button>
-</div>
-
-<h1>TEEG</h1>
-
-<input id="playerName" placeholder="Your name"><br><br>
-
-<button onclick="createRoom()">Create Room</button><br><br>
-
-<input id="roomInput" placeholder="Room code">
-<button onclick="joinRoom()">Join Room</button>
-
-<h2 id="room"></h2>
-<h3 id="turn"></h3>
-
-<h3>Players</h3>
-<div id="players"></div>
-
-<h3>Your Cards</h3>
-<div id="hand"></div>
-
-<button onclick="playSelected()">Play Selected</button>
-
-<h3>Play Pile</h3>
-<div id="pile"></div>
-
-<script>
-/* ---------------- CONNECTION ---------------- */
-
-const socket = io("https://teeg-server.onrender.com", {
-  transports: ["polling"],
-  forceNew: true
-});
-
-let myId = "";
-let roomId = "";
-let lastState = null;
-
-/* Multi-select (HAND ONLY) */
-let selectedIndexes = [];
-let selectedValue = null;
-
-socket.on("connect", () => {
-  myId = socket.id;
-});
-
-/* ---------------- ROOM ---------------- */
-
-function createRoom() {
-  const name = playerName.value.trim();
-  if (!name) return alert("Enter name");
-
-  socket.emit("create-room", name, id => {
-    roomId = id;
-    room.innerText = "Room: " + id;
-  });
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0b3d2e;
+  color: white;
 }
 
-function joinRoom() {
-  const name = playerName.value.trim();
-  roomId = roomInput.value.trim();
-  if (!name || !roomId) return;
+#table-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
-  room.innerText = "Room: " + roomId;
-  socket.emit("join-room", { roomId, name });
+#table {
+  position: relative;
+  width: 90vw;
+  height: 70vh;
+  background: #0b3d2e;
+  border-radius: 50px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Player positions */
+.player {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 120px;
+}
+.player.top { top: 20px; left: 50%; transform: translateX(-50%); }
+.player.bottom { bottom: 20px; left: 50%; transform: translateX(-50%); }
+.player.left { left: 20px; top: 50%; transform: translateY(-50%); }
+.player.right { right: 20px; top: 50%; transform: translateY(-50%); }
+
+.cards-row { display: flex; justify-content: center; margin: 5px 0; }
+
+.card {
+  width: 50px;
+  height: 70px;
+  border-radius: 5px;
+  background: white;
+  color: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 2px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  font-weight: bold;
+  font-size: 18px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.card.back { background: #222; color: transparent; border: 1px solid #555; }
+
+.selected {
+  background: gold !important;
+  color: black;
+  border: 2px solid red;
+  transform: scale(1.1);
+}
+
+/* Piles */
+#play-pile, #draw-pile {
+  position: absolute;
+  width: 80px;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+#play-pile { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+#draw-pile { top: 50%; left: calc(50% + 100px); transform: translate(-50%, -50%); }
+
+.pile-card {
+  position: absolute;
+  width: 50px;
+  height: 70px;
+  border-radius: 5px;
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: -60px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+.pile-count {
+  position: absolute;
+  bottom: -15px;
+  right: -15px;
+  background: red;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* HUD */
+#hud {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+#hud input { padding: 5px; margin: 3px; }
+
+#bomb, #teeg {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  z-index: 999;
+}
+#bomb { background: red; }
+#teeg { background: black; color: red; flex-direction: column; }
+</style>
+</head>
+<body>
+
+<div id="table-container">
+  <div id="table"></div>
+
+  <div id="hud">
+    <input id="playerName" placeholder="Your name">
+    <button onclick="createRoom()">Create Room</button>
+    <input id="roomInput" placeholder="Room code">
+    <button onclick="joinRoom()">Join Room</button>
+    <h3 id="turn"></h3>
+  </div>
+
+  <div id="play-pile"></div>
+  <div id="draw-pile"><div class="card back"></div></div>
+  <div id="bomb">💥 BOMB 💥</div>
+  <div id="teeg"><div id="teegText"></div><button onclick="alert(`YOU'RE SHIT 😈`)">YOU'RE SHIT</button></div>
+</div>
+
+<script>
+/* ---------------- SOCKET ---------------- */
+const socket = io("https://teeg-server.onrender.com",{transports:["polling"],forceNew:true});
+let myId="", roomId="", lastState=null;
+let selectedIndexes=[], selectedValue=null;
+
+/* ---------------- ROOM ---------------- */
+function createRoom(){
+  const name=playerName.value.trim();
+  if(!name) return alert("Enter name");
+  socket.emit("create-room",name,id=>{roomId=id;});
+}
+function joinRoom(){
+  const name=playerName.value.trim();
+  roomId=roomInput.value.trim();
+  if(!name||!roomId) return;
+  socket.emit("join-room",{roomId,name});
 }
 
 /* ---------------- STATE ---------------- */
+socket.on("state", state=>{
+  lastState=state;
+  const table=document.getElementById("table");
+  table.innerHTML="";
+  selectedIndexes=[]; selectedValue=null;
 
-socket.on("state", state => {
-  lastState = state;
-  players.innerHTML = "";
-  hand.innerHTML = "";
-  pile.innerHTML = "";
+  const current=state.players[state.turn];
+  turn.innerText=current.id===myId?"👉 YOUR TURN":"Waiting for "+current.name;
 
-  selectedIndexes = [];
-  selectedValue = null;
+  state.players.forEach((p,index)=>{
+    const playerDiv=document.createElement("div");
+    playerDiv.className="player "+["top","bottom","left","right"][index];
+    playerDiv.id="player-"+index;
 
-  const current = state.players[state.turn];
+    // Face-down
+    const fdRow=document.createElement("div"); fdRow.className="cards-row";
+    (p.faceDown||p.hand).forEach(()=>{const c=document.createElement("div"); c.className="card back"; fdRow.appendChild(c);});
+    playerDiv.appendChild(fdRow);
 
-  turn.innerText =
-    current.id === myId ? "👉 YOUR TURN" : "Waiting for " + current.name;
+    // Face-up
+    const fuRow=document.createElement("div"); fuRow.className="cards-row";
+    (p.faceUp||[]).forEach(card=>{const c=document.createElement("div"); c.className="card"; c.innerText=card; fuRow.appendChild(c);});
+    playerDiv.appendChild(fuRow);
 
-  state.players.forEach(p => {
-    const div = document.createElement("div");
-    div.innerText = p.name + (p.id === current.id ? " ⭐" : "");
-    players.appendChild(div);
-
-    if (p.id === myId) renderMyCards(p, current.id === myId);
+    // Hand (only for me)
+    if(p.id===myId){
+      const handRow=document.createElement("div"); handRow.className="cards-row";
+      (p.hand||[]).forEach((card,i)=>{
+        const btn=document.createElement("div"); btn.className="card"; btn.innerText=card;
+        if(selectedIndexes.includes(i)) btn.classList.add("selected");
+        btn.onclick=()=>toggleCard(card,i);
+        handRow.appendChild(btn);
+      });
+      playerDiv.appendChild(handRow);
+    }
+    table.appendChild(playerDiv);
   });
 
-  pile.innerText = state.pile.join(" ");
+  // Play pile
+  const pp=document.getElementById("play-pile"); pp.innerHTML="";
+  const pileCounts={};
+  state.pile.forEach(c=>pileCounts[c]=(pileCounts[c]||0)+1);
+  Object.keys(pileCounts).forEach((c,i)=>{
+    const cardDiv=document.createElement("div"); cardDiv.className="pile-card"; cardDiv.style.top=(i*5)+"px";
+    cardDiv.innerText=c; pp.appendChild(cardDiv);
+    if(pileCounts[c]>1){
+      const countDiv=document.createElement("div"); countDiv.className="pile-count"; countDiv.innerText=pileCounts[c]; cardDiv.appendChild(countDiv);
+    }
+  });
+
+  // Draw pile
+  const dp=document.getElementById("draw-pile"); dp.innerHTML='<div class="card back"></div>';
 });
 
-/* ---------------- RENDER MY CARDS ---------------- */
-
-function renderMyCards(me, myTurn) {
-  hand.innerHTML = "";
-
-  /* HAND (multi-select) */
-  if (me.stage === "hand") {
-    me.hand.forEach((card, index) => {
-      const btn = document.createElement("button");
-      btn.innerText = card;
-
-      if (selectedIndexes.includes(index)) {
-        btn.classList.add("selected");
-      }
-
-      btn.disabled = !myTurn;
-      btn.onclick = () => toggleCard(card, index);
-
-      hand.appendChild(btn);
-    });
-    return;
-  }
-
-  /* FACE UP */
-  if (me.stage === "faceUp") {
-    me.faceUp.forEach(card => {
-      const btn = document.createElement("button");
-      btn.innerText = card;
-      btn.disabled = !myTurn;
-      btn.onclick = () => {
-        socket.emit("play", { roomId, card });
-      };
-      hand.appendChild(btn);
-    });
-    return;
-  }
-
-  /* FACE DOWN */
-  if (me.stage === "faceDown") {
-    me.faceDown.forEach(() => {
-      const btn = document.createElement("button");
-      btn.innerText = "❓";
-      btn.disabled = !myTurn;
-      btn.onclick = () => {
-        socket.emit("play", { roomId, card: "UNKNOWN" });
-      };
-      hand.appendChild(btn);
-    });
-  }
-}
-
 /* ---------------- MULTI SELECT ---------------- */
-
-function toggleCard(card, index) {
-  if (!lastState) return;
-  if (lastState.players[lastState.turn].id !== myId) return;
-
-  if (selectedValue === null || selectedValue !== card) {
-    selectedValue = card;
-    selectedIndexes = [index];
-  } else if (selectedIndexes.includes(index)) {
-    selectedIndexes = selectedIndexes.filter(i => i !== index);
-    if (!selectedIndexes.length) selectedValue = null;
-  } else {
-    selectedIndexes.push(index);
-  }
-
-  renderMyCards(
-    lastState.players.find(p => p.id === myId),
-    true
-  );
+function toggleCard(card,index){
+  if(!lastState||lastState.players[lastState.turn].id!==myId) return;
+  if(selectedValue===null||selectedValue!==card){selectedValue=card; selectedIndexes=[index];}
+  else if(selectedIndexes.includes(index)){selectedIndexes=selectedIndexes.filter(i=>i!==index); if(!selectedIndexes.length) selectedValue=null;}
+  else selectedIndexes.push(index);
+  renderHand();
+}
+function renderHand(){
+  if(!lastState) return;
+  const me=lastState.players.find(p=>p.id===myId);
+  const handDiv=document.querySelector("#player-"+lastState.players.indexOf(me)+" .cards-row:last-child");
+  Array.from(handDiv.children).forEach((c,i)=>c.classList.toggle("selected",selectedIndexes.includes(i)));
 }
 
 /* ---------------- PLAY ---------------- */
-
-function playSelected() {
-  if (!lastState || selectedIndexes.length === 0) return;
-
-  const me = lastState.players.find(p => p.id === myId);
-  const cards = selectedIndexes.map(i => me.hand[i]);
-
-  socket.emit("play", { roomId, cards });
-
-  selectedIndexes = [];
-  selectedValue = null;
+function playSelected(){
+  if(!lastState||selectedIndexes.length===0) return;
+  const me=lastState.players.find(p=>p.id===myId);
+  const cards=selectedIndexes.map(i=>me.hand[i]);
+  socket.emit("play",{roomId,cards});
+  selectedIndexes=[]; selectedValue=null;
 }
 
 /* ---------------- EFFECTS ---------------- */
-
-socket.on("bomb", () => {
-  bomb.style.display = "flex";
-  setTimeout(() => bomb.style.display = "none", 800);
-});
-
-socket.on("game-over", data => {
-  teeg.style.display = "flex";
-  teegText.innerText = data.teeg + " IS THE TEEG";
-});
+socket.on("bomb",()=>{bomb.style.display="flex"; setTimeout(()=>bomb.style.display="none",800);});
+socket.on("game-over",data=>{teeg.style.display="flex"; teegText.innerText=data.teeg+" IS THE TEEG";});
+socket.on("connect",()=>{myId=socket.id;});
 </script>
-
 </body>
 </html>
