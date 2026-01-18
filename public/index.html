@@ -9,12 +9,10 @@
 <style>
 html, body {
   margin: 0;
-  padding: 0;
   width: 100%;
   height: 100%;
   background: #064b2c;
   font-family: Arial, sans-serif;
-  user-select: none;
 }
 
 /* ================= TABLE ================= */
@@ -31,25 +29,45 @@ html, body {
 
 .player {
   position: absolute;
-  width: 400px;
-  height: 180px;
+  width: 420px;
+  height: 220px;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.player.bottom { bottom: 10px; left: 50%; transform: translateX(-50%); }
-.player.top    { top: 10px; left: 50%; transform: translateX(-50%); }
-.player.left   { left: 10px; top: 50%; transform: translateY(-50%) rotate(90deg); }
-.player.right  { right: 10px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+.player.bottom { bottom: 20px; left: 50%; transform: translateX(-50%); }
+.player.top { top: 20px; left: 50%; transform: translateX(-50%); }
+.player.left { left: 20px; top: 50%; transform: translateY(-50%) rotate(90deg); }
+.player.right { right: 20px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
 
 .player-name {
   color: white;
-  margin-bottom: 5px;
   font-weight: bold;
+  margin-bottom: 5px;
 }
 
-/* ================= CARDS ================= */
+/* ================= TABLE CARDS ================= */
+
+.table-cards {
+  position: relative;
+  width: 100%;
+  height: 110px;
+  display: flex;
+  justify-content: center;
+  gap: 35px; /* SPACING BETWEEN STACKS */
+}
+
+/* ================= HAND ================= */
+
+.hand {
+  position: absolute;
+  bottom: 135px; /* FLOAT ABOVE TABLE CARDS */
+  width: 100%;
+  height: 120px;
+}
+
+/* ================= CARD ================= */
 
 .card {
   position: absolute;
@@ -58,40 +76,24 @@ html, body {
   border-radius: 6px;
   background: white;
   color: black;
+  font-size: 18px;
+  font-weight: bold;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-weight: bold;
-  font-size: 18px;
   box-shadow: 0 3px 6px rgba(0,0,0,0.5);
   transition: transform 0.15s ease;
 }
 
 .card.back {
   background: #1a1a1a;
-  border: 1px solid #555;
   color: transparent;
+  border: 1px solid #555;
 }
 
 .card.selected {
   transform: translateY(-20px);
   outline: 2px solid gold;
-}
-
-/* ================= HAND ================= */
-
-.hand {
-  position: relative;
-  width: 100%;
-  height: 120px;
-}
-
-/* ================= FACE UP / DOWN ================= */
-
-.face-zone {
-  position: relative;
-  width: 100%;
-  height: 90px;
 }
 
 /* ================= PILES ================= */
@@ -118,8 +120,8 @@ html, body {
   border-radius: 50%;
   font-size: 12px;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
 }
 
 /* ================= HUD ================= */
@@ -159,176 +161,169 @@ html, body {
 </div>
 
 <script>
-/* ================= SOCKET ================= */
-
 const socket = io("https://teeg-server.onrender.com",{transports:["polling"]});
-let myId = "";
-let roomId = "";
-let lastState = null;
-let selectedIndexes = [];
-let selectedValue = null;
 
-socket.on("connect", () => myId = socket.id);
+let myId="", roomId="", lastState=null;
+let selectedIndexes=[], selectedValue=null;
 
-/* ================= ROOM ================= */
+socket.on("connect",()=>myId=socket.id);
 
-function createRoom() {
-  const name = playerName.value.trim();
-  if (!name) return;
-  socket.emit("create-room", name, id => roomId = id);
+/* ---------------- ROOM ---------------- */
+
+function createRoom(){
+  const name=playerName.value.trim();
+  if(!name) return;
+  socket.emit("create-room",name,id=>roomId=id);
 }
 
-function joinRoom() {
-  const name = playerName.value.trim();
-  roomId = roomInput.value.trim();
-  if (!name || !roomId) return;
-  socket.emit("join-room", { roomId, name });
+function joinRoom(){
+  const name=playerName.value.trim();
+  roomId=roomInput.value.trim();
+  if(!name||!roomId) return;
+  socket.emit("join-room",{roomId,name});
 }
 
-/* ================= STATE ================= */
+/* ---------------- STATE ---------------- */
 
-socket.on("state", state => {
-  lastState = state;
-  document.querySelectorAll(".player").forEach(p => p.remove());
+socket.on("state",state=>{
+  lastState=state;
+  document.querySelectorAll(".player").forEach(p=>p.remove());
 
-  const positions = ["bottom","top","left","right"];
+  const positions=["bottom","top","left","right"];
+  const current=state.players[state.turn];
+  turn.innerText=current.id===myId?"YOUR TURN":current.name+"'s turn";
 
-  const current = state.players[state.turn];
-  turn.innerText = current.id === myId ? "YOUR TURN" : current.name + "'s turn";
-
-  state.players.forEach((p, i) => renderPlayer(p, positions[i]));
+  state.players.forEach((p,i)=>renderPlayer(p,positions[i]));
   renderPiles(state);
 });
 
-/* ================= RENDER PLAYER ================= */
+/* ---------------- PLAYER ---------------- */
 
-function renderPlayer(player, pos) {
-  const el = document.createElement("div");
-  el.className = "player " + pos;
+function renderPlayer(p,pos){
+  const el=document.createElement("div");
+  el.className="player "+pos;
 
-  const name = document.createElement("div");
-  name.className = "player-name";
-  name.innerText = player.name;
+  const name=document.createElement("div");
+  name.className="player-name";
+  name.innerText=p.name;
   el.appendChild(name);
 
-  renderFaceCards(el, player);
-  renderHand(el, player);
+  renderTableCards(el,p);
+  renderHand(el,p);
 
-  document.getElementById("table").appendChild(el);
+  table.appendChild(el);
 }
 
-/* ================= FACE UP / DOWN ================= */
+/* ---------------- TABLE CARDS ---------------- */
 
-function renderFaceCards(el, p) {
-  const zone = document.createElement("div");
-  zone.className = "face-zone";
+function renderTableCards(el,p){
+  const zone=document.createElement("div");
+  zone.className="table-cards";
 
-  (p.faceDown || []).forEach((_, i) => {
-    const c = createCard("?", true);
-    c.style.left = (i * 22) + "px";
-    zone.appendChild(c);
-  });
+  for(let i=0;i<3;i++){
+    const stack=document.createElement("div");
+    stack.style.position="relative";
+    stack.style.width="60px";
+    stack.style.height="85px";
 
-  (p.faceUp || []).forEach((v, i) => {
-    const c = createCard(v);
-    c.style.left = (i * 22) + "px";
-    if (p.id === myId && p.stage === "faceUp") {
-      c.onclick = () => socket.emit("play",{roomId,card:v});
+    if(p.faceDown?.[i]){
+      const fd=createCard("?",true);
+      stack.appendChild(fd);
     }
-    zone.appendChild(c);
-  });
+
+    if(p.faceUp?.[i]){
+      const fu=createCard(p.faceUp[i]);
+      fu.style.top="-6px"; /* STACK OFFSET */
+      if(p.id===myId && p.stage==="faceUp"){
+        fu.onclick=()=>socket.emit("play",{roomId,card:p.faceUp[i]});
+      }
+      stack.appendChild(fu);
+    }
+
+    zone.appendChild(stack);
+  }
 
   el.appendChild(zone);
 }
 
-/* ================= HAND ================= */
+/* ---------------- HAND ---------------- */
 
-function renderHand(el, p) {
-  const hand = document.createElement("div");
-  hand.className = "hand";
+function renderHand(el,p){
+  if(p.id!==myId || p.stage!=="hand") return;
 
-  if (p.id === myId && p.stage === "hand") {
-    p.hand.forEach((v, i) => {
-      const c = createCard(v);
-      c.style.left = (i * 45) + "px";
-      if (selectedIndexes.includes(i)) c.classList.add("selected");
-      c.onclick = () => toggleCard(v, i);
-      hand.appendChild(c);
-    });
-  } else {
-    (p.hand || []).forEach((_, i) => {
-      const c = createCard("?", true);
-      c.style.left = (i * 12) + "px";
-      hand.appendChild(c);
-    });
-  }
+  const hand=document.createElement("div");
+  hand.className="hand";
+
+  p.hand.forEach((v,i)=>{
+    const c=createCard(v);
+    c.style.left=(i*45)+"px";
+    if(selectedIndexes.includes(i)) c.classList.add("selected");
+    c.onclick=()=>toggleCard(v,i);
+    hand.appendChild(c);
+  });
 
   el.appendChild(hand);
 }
 
-/* ================= CARD ================= */
+/* ---------------- CARD ---------------- */
 
-function createCard(value, back=false) {
-  const c = document.createElement("div");
-  c.className = "card" + (back ? " back" : "");
-  c.innerText = back ? "" : value;
+function createCard(v,back=false){
+  const c=document.createElement("div");
+  c.className="card"+(back?" back":"");
+  c.innerText=back?"":v;
   return c;
 }
 
-/* ================= MULTI SELECT ================= */
+/* ---------------- MULTI ---------------- */
 
-function toggleCard(val, idx) {
-  if (!lastState) return;
-  const me = lastState.players[lastState.turn];
-  if (me.id !== myId) return;
+function toggleCard(val,idx){
+  if(!lastState) return;
+  const me=lastState.players[lastState.turn];
+  if(me.id!==myId) return;
 
-  if (selectedValue === null || selectedValue !== val) {
-    selectedValue = val;
-    selectedIndexes = [idx];
-  } else if (selectedIndexes.includes(idx)) {
-    selectedIndexes = selectedIndexes.filter(i => i !== idx);
-    if (!selectedIndexes.length) selectedValue = null;
+  if(selectedValue===null||selectedValue!==val){
+    selectedValue=val;
+    selectedIndexes=[idx];
+  } else if(selectedIndexes.includes(idx)){
+    selectedIndexes=selectedIndexes.filter(i=>i!==idx);
+    if(!selectedIndexes.length) selectedValue=null;
   } else {
     selectedIndexes.push(idx);
   }
   socket.emit("request-state");
 }
 
-/* ================= PLAY ================= */
+/* ---------------- PLAY ---------------- */
 
-function playSelected() {
-  if (!selectedIndexes.length) return;
-  const me = lastState.players.find(p => p.id === myId);
-  const cards = selectedIndexes.map(i => me.hand[i]);
-  socket.emit("play", { roomId, cards });
-  selectedIndexes = [];
-  selectedValue = null;
+function playSelected(){
+  if(!selectedIndexes.length) return;
+  const me=lastState.players.find(p=>p.id===myId);
+  socket.emit("play",{roomId,cards:selectedIndexes.map(i=>me.hand[i])});
+  selectedIndexes=[]; selectedValue=null;
 }
 
-/* ================= PILES ================= */
+/* ---------------- PILES ---------------- */
 
-function renderPiles(state) {
-  const play = document.getElementById("play-pile");
-  const draw = document.getElementById("draw-pile");
-  play.innerHTML = "";
-  draw.innerHTML = "";
+function renderPiles(state){
+  play-pile.innerHTML="";
+  draw-pile.innerHTML="";
 
-  const counts = {};
-  state.pile.forEach(c => counts[c] = (counts[c] || 0) + 1);
+  const counts={};
+  state.pile.forEach(c=>counts[c]=(counts[c]||0)+1);
 
-  Object.keys(counts).forEach((v, i) => {
-    const c = createCard(v);
-    c.style.top = (i * 3) + "px";
-    play.appendChild(c);
-    if (counts[v] > 1) {
-      const n = document.createElement("div");
-      n.className = "pile-count";
-      n.innerText = counts[v];
+  Object.keys(counts).forEach((v,i)=>{
+    const c=createCard(v);
+    c.style.top=(i*3)+"px";
+    play-pile.appendChild(c);
+    if(counts[v]>1){
+      const n=document.createElement("div");
+      n.className="pile-count";
+      n.innerText=counts[v];
       c.appendChild(n);
     }
   });
 
-  draw.appendChild(createCard("?", true));
+  draw-pile.appendChild(createCard("?",true));
 }
 </script>
 
