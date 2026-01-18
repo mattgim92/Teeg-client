@@ -62,9 +62,16 @@ html, body {
 
 .hand {
   position: absolute;
-  bottom: 135px; /* FLOAT ABOVE TABLE CARDS */
-  width: 100%;
-  height: 120px;
+  bottom: 130px;           /* 🔥 lifts hand above table cards */
+  left: 50%;
+  transform: translateX(-50%);
+  height: 90px;
+  pointer-events: auto;
+}
+
+.hand .card {
+  position: absolute;
+  transition: transform 0.2s;
 }
 
 /* ================= CARD ================= */
@@ -227,23 +234,33 @@ function renderPlayer(p,pos){
 function renderTableCards(el,p){
   const zone=document.createElement("div");
   zone.className="table-cards";
+  zone.style.display="flex";
+  zone.style.gap="8px";        // 🔥 HALVED spacing (was ~16+ visually)
+  zone.style.marginTop="8px";
 
   for(let i=0;i<3;i++){
     const stack=document.createElement("div");
     stack.style.position="relative";
-    stack.style.width="60px";
-    stack.style.height="85px";
+    stack.style.width="55px";  // slightly tighter
+    stack.style.height="80px";
 
+    // Face-down (always visible)
     if(p.faceDown?.[i]){
-      stack.appendChild(createCard("?",true));
+      const fd=createCard("?",true);
+      stack.appendChild(fd);
     }
 
+    // Face-up (stacked on top)
     if(p.faceUp?.[i]){
       const fu=createCard(p.faceUp[i]);
-      fu.style.top="-6px";
+      fu.style.position="absolute";
+      fu.style.top="-6px";     // visible overlap
+      fu.style.left="0";
+
       if(p.id===myId && p.stage==="faceUp"){
         fu.onclick=()=>socket.emit("play",{roomId,card:p.faceUp[i]});
       }
+
       stack.appendChild(fu);
     }
 
@@ -253,24 +270,38 @@ function renderTableCards(el,p){
   el.appendChild(zone);
 }
 
+
 /* ---------------- HAND ---------------- */
 
 function renderHand(el,p){
   if(p.id!==myId || p.stage!=="hand") return;
 
+  // Remove existing hand if any
+  const old=document.querySelector(".hand");
+  if(old) old.remove();
+
   const hand=document.createElement("div");
   hand.className="hand";
 
+  const total=p.hand.length;
+  const spread=30;  // fan spacing
+
   p.hand.forEach((v,i)=>{
     const c=createCard(v);
-    c.style.left=(i*45)+"px";
+
+    const offset=(i-(total-1)/2)*spread;
+    c.style.left=`${offset}px`;
+    c.style.bottom="0";
+
     if(selectedIndexes.includes(i)) c.classList.add("selected");
+
     c.onclick=()=>toggleCard(v,i);
     hand.appendChild(c);
   });
 
-  el.appendChild(hand);
+  table.appendChild(hand);
 }
+
 
 /* ---------------- CARD ---------------- */
 
